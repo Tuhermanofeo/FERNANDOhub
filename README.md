@@ -1,21 +1,19 @@
 # FERNANDOhub
-FERNANDOhub es una herramienta la cual hasta ahora contiene en si 3 opciones las cuales son:
-1-. buscar usuario
-2-. buscar email
-3-. ip tracker
-¿Como instalar?
-solo clona el repositorio
+FERNANDOhub es una herramienta la cual se dirige atentamente a los usuarios básicos y que recién empiezan en Linux/termux 
 
--> *git clone https://github.com/Tuhermanofeo/FERNANDOhub*
+# Instalación/Uso
+primero clona el repositorio
 
-cambia de directorio
+->
+
+luego dirígete al directorio
 
 -> *cd FERNANDOhub*
 
-hazlo ejecutable 
+ejecuta el .py con python3
 
--> *chmod +x fernandohub.sh*
+-> *python3 fernandohub.py
 
-ejecutalo
+acciona la opción 8 para instalarlo en comando, usa Fh para hacerlo correr
 
--> *./fernandohub.sh*
+-> *Fh*
