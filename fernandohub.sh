@@ -2,26 +2,17 @@
 
 # --- Limpia la pantalla ---
 clear
-
-# --- Definición de códigos de color ANSI ---
-VERDE = "\033[92m"
-BLANCO = "\033[97m"
-ROJO = "\033[91m"
-AZUL = "\033[94m"
-RESET = "\033[0m"
-
-
-# --- BANNER SECUNDARIO (con borde de código) ---
-print(f"""{VERDE}
- _____ _____ ____  _   _    _    _   _ ____   ___  _           _     
-|  ___| ____|  _ \| \ | |  / \  | \ | |  _ \ / _ \| |__  _   _| |__  
-| |_  |  _| | |_) |  \| | / _ \ |  \| | | | | | | | '_ \| | | | '_ \ 
-|  _| | |___|  _ <| |\  |/ ___ \| |\  | |_| | |_| | | | | |_| | |_) |
-|_|   |_____|_| \_\_| \_/_/   \_\_| \_|____/ \___/|_| |_|\__,_|_.__/ 
-                                                                     
-
-{RESET}""")
-# --- FIN BANNER ---
+# --- BANNER PRINCIPAL ---
+echo "========================================"
+echo "==                                    =="
+echo "==      F E R N A N D O h u b         =="
+echo "==      Herramienta OSINT             =="
+echo "==                                    =="
+echo "========================================"
+echo ""
+echo "    [Menú Principal]"
+echo ""
+echo ""
 
 # --- MENU ---
 echo "[1] Buscar nombre de usuario"
