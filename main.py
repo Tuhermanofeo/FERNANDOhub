@@ -55,26 +55,22 @@ def buscar_correo(email):
     print("---")
     
     try:
-        # Intenta ejecutar 'holehe' para ver si está instalado
         proceso = subprocess.run(['holehe', email], capture_output=True, text=True, check=True)
         salida_holehe = proceso.stdout
         
     except FileNotFoundError:
-        # Si no se encuentra, lo instalamos automáticamente
         print(f"\n{AZUL}[*] Herramienta Holehe no encontrada. Iniciando instalación automática...{RESET}")
         try:
-            # Puedes usar 'pip' o 'pip3' dependiendo de tu sistema
-            subprocess.run(['pip', 'install', 'holehe'], check=True)
+            # Aquí está el cambio clave: usamos --break-system-packages para forzar la instalación
+            subprocess.run(['pip', 'install', 'holehe', '--break-system-packages'], check=True)
             print(f"{VERDE}[+] Instalación de Holehe completada. Reejecutando la búsqueda...{RESET}\n")
-            # Volvemos a ejecutar la búsqueda ahora que está instalado
             proceso = subprocess.run(['holehe', email], capture_output=True, text=True, check=True)
             salida_holehe = proceso.stdout
             
         except subprocess.CalledProcessError as e:
             print(f"\n{ROJO}[!] ERROR de instalación:{RESET} pip devolvió un error. Asegúrate de que tienes 'pip' instalado.")
-            return # Salimos de la función si la instalación falla
+            return
 
-    # --- Lógica para procesar y mostrar los resultados de Holehe ---
     lineas = salida_holehe.split('\n')
     urls_registradas = []
     
@@ -94,7 +90,7 @@ def buscar_correo(email):
     print(f"\n{BLANCO}--- Salida completa de Holehe ---{RESET}")
     print(salida_holehe)
     
-# --- Nueva función para rastrear IPs ---
+# Función para rastrear IPs
 def track_ip(ip_address):
     print(f"[*] Rastreo de IP en progreso para: {AZUL}{ip_address}{RESET}")
     print("---")
@@ -144,4 +140,3 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print(f"\n{ROJO}[!] User Keyboard Interrupt{RESET}")
         sys.exit(1)
-
