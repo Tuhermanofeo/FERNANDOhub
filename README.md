@@ -18,4 +18,4 @@ hazlo ejecutable
 
 ejecutalo
 
--> *./fernandohub*
+-> *./fernandohub.sh*
