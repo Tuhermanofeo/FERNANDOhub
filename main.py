@@ -22,7 +22,7 @@ print(f"""{VERDE}
 
 {RESET}""")
 # --- FIN BANNER ---
-
+print(f"\n{AZUL}[*]Iniciando{RESET}")
 # Función para buscar nombres de usuario
 def buscar_usuario(username):
     sitios_encontrados = []
