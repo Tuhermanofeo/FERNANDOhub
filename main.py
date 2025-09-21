@@ -54,6 +54,11 @@ def buscar_correo(email):
     print(f"[*] Usando la herramienta {VERDE}Holehe{RESET} para buscar el correo: {email}")
     print("---")
     
+    # --- Nuevo: Verificación de formato de correo ---
+    if "@" not in email or "." not in email:
+        print(f"{ROJO}[!] ERROR:{RESET} El formato del correo electrónico es incorrecto. Por favor, ingresa una dirección válida.")
+        return # Salimos de la función si el formato es inválido
+
     try:
         proceso = subprocess.run(['holehe', email], capture_output=True, text=True, check=True)
         salida_holehe = proceso.stdout
@@ -61,7 +66,6 @@ def buscar_correo(email):
     except FileNotFoundError:
         print(f"\n{AZUL}[*] Herramienta Holehe no encontrada. Iniciando instalación automática...{RESET}")
         try:
-            # Aquí está el cambio clave: usamos --break-system-packages para forzar la instalación
             subprocess.run(['pip', 'install', 'holehe', '--break-system-packages'], check=True)
             print(f"{VERDE}[+] Instalación de Holehe completada. Reejecutando la búsqueda...{RESET}\n")
             proceso = subprocess.run(['holehe', email], capture_output=True, text=True, check=True)
