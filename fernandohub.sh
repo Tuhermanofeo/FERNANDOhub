@@ -477,3 +477,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print(f"\n{ROJO}[!] Interrupción por el usuario. Saliendo...{RESET}")
         sys.exit(1)
+print(" ")
