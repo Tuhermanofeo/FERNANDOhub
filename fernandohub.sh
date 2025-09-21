@@ -3,16 +3,13 @@
 # --- Limpia la pantalla ---
 clear
 # --- BANNER PRINCIPAL ---
-echo "========================================"
-echo "==                                    =="
-echo "==      F E R N A N D O h u b         =="
-echo "==      Herramienta OSINT             =="
-echo "==                                    =="
-echo "========================================"
 echo ""
-echo "    [Menú Principal]"
+echo "▛▀▘▛▀▘▛▀▖▙ ▌▞▀▖▙ ▌▛▀▖▞▀▖▌     ▌"  
+echo "▙▄ ▙▄ ▙▄▘▌▌▌▙▄▌▌▌▌▌ ▌▌ ▌▛▀▖▌ ▌▛▀▖"
+echo "▌  ▌  ▌▚ ▌▝▌▌ ▌▌▝▌▌ ▌▌ ▌▌ ▌▌ ▌▌ ▌"
+echo"▘  ▀▀▘▘ ▘▘ ▘▘ ▘▘ ▘▀▀ ▝▀ ▘ ▘▝▀▘▀▀ "
 echo ""
-echo ""
+
 
 # --- MENU ---
 echo "[1] Buscar nombre de usuario"
