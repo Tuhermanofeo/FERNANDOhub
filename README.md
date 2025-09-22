@@ -4,7 +4,7 @@ FERNANDOhub es una herramienta la cual se dirige atentamente a los usuarios bás
 # Instalación/Uso
 primero clona el repositorio
 
-->
+-> *git clone https://github.com/Tuhermanofeo/FERNANDOhub.git*
 
 luego dirígete al directorio
 
