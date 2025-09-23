@@ -12,7 +12,7 @@ luego dirígete al directorio
 
 ejecuta el .py con python3
 
--> *python3 fernandohub.py
+-> *python3 fernandohub.py*
 
 acciona la opción 8 para instalarlo en comando, usa Fh para hacerlo correr
 
