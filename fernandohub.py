@@ -1020,7 +1020,7 @@ def show_menu():
         print(f"3. {AZUL}Rastrear dirección IP{RESET}")
         print(f"4. {AZUL}Escanear vulnerabilidad SQL{RESET}")
         print(f"5. {AZUL}Generar enlace de rastreo de IP{RESET}")
-        print(f"6. {AZUL}Realizar ataque de inundación (DoS) - SIMULACIÓN{RESET}")
+        print(f"6. {AZUL}Realizar ataque de inundación (DoS){RESET}")
         print(f"7. {AZUL}Obtener información de un sitio web{RESET}")
         print(f"8. {AZUL}Instalar la herramienta (comando Fh){RESET}")
         print(f"9. {AZUL}Escanear con nmap{RESET}")
